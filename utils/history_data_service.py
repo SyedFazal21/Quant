@@ -26,24 +26,21 @@ def authenticate():
 
     return smart_api
 
-def hist_data(tickers, duration, interval, token, smart_api, exchange="NFO"): # Changed default to NFO
-    hist_data_tickers = {}
-    for ticker in tickers:
-        params = {
-            "exchange": exchange,
-            "symboltoken": token,
-            "interval": interval,
-            # Fixed subtraction syntax by converting today() to a datetime object
-            "fromdate": (dt.datetime.combine(dt.date.today(), dt.time.min) - dt.timedelta(duration)).strftime('%Y-%m-%d %H:%M'),
-            "todate": dt.datetime.now().strftime('%Y-%m-%d %H:%M')
-        }
-        hist_data = smart_api.getCandleData(params)
-        df_data = pd.DataFrame(hist_data["data"],
-                               columns=["date", "open", "high", "low", "close", "volume"])
-        df_data.set_index("date", inplace=True)
-        df_data.index = pd.to_datetime(df_data.index)
-        df_data.index = df_data.index.tz_localize(None)
-        hist_data_tickers[ticker] = df_data
-    return hist_data_tickers
+def hist_data(duration, interval, token, smart_api, exchange="NFO"):
+    params = {
+        "exchange": exchange,
+        "symboltoken": token,
+        "interval": interval,
+        # Fixed subtraction syntax by converting today() to a datetime object
+        "fromdate": (dt.datetime.combine(dt.date.today(), dt.time.min) - dt.timedelta(duration)).strftime('%Y-%m-%d %H:%M'),
+        "todate": dt.datetime.now().strftime('%Y-%m-%d %H:%M')
+    }
+    candle_data = smart_api.getCandleData(params)
+    df_data = pd.DataFrame(candle_data["data"],
+                           columns=["date", "open", "high", "low", "close", "volume"])
+    df_data.set_index("date", inplace=True)
+    df_data.index = pd.to_datetime(df_data.index)
+    df_data.index = df_data.index.tz_localize(None)
+    return df_data
 
 

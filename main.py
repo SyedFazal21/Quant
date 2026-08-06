@@ -12,7 +12,7 @@ smart_api = authenticate()
 active_nifty_50_token = get_cached_nifty_future_token()
 
 sws = create_websocket_connection(smart_api.access_token, smart_api.getfeedToken())
-candle_data = hist_data(["NIFTY_FUT"], 10, "FIVE_MINUTE", active_nifty_50_token, smart_api)
+candle_data = hist_data(10, "FIVE_MINUTE", active_nifty_50_token, smart_api)
 
 # =============================================================================
 #   9:20 AM REGIME FILTER (Decision Engine)
@@ -21,26 +21,28 @@ vix = get_vix_value(smart_api)
 print(f"vix value: {vix}")
 
 # B. For the PRIMARY symbol
-primary_df = candle_data["NIFTY_FUT"]
+primary_df = candle_data
 score = calculate_regime_score(primary_df, vix)
 
 print(f"\n===== REGIME FILTER SCORE: {score} =====")
 if score >= 2:
     print(">> DEPLOY STRATEGY 1 (ORB - Trend Follower)")
-    # Strategy 1 Indicators
-    add_atr(candle_data, n=14)
-    add_volume_spike(candle_data)
-    add_opening_range(candle_data)
 elif score <= -2:
     print(">> DEPLOY STRATEGY 2 (RSI+VWAP Scalper)")
-    # Strategy 2 Indicators
-    add_rsi(candle_data, n=14)
-    add_vwap(candle_data)
-    add_ema(candle_data, period=200)
 else:
     print(">> SIT OUT TODAY (Mixed signals)")
 
-create_csv(candle_data["NIFTY_FUT"])
+# Strategy 1 Indicators
+add_atr(candle_data, n=14)
+add_volume_spike(candle_data)
+add_opening_range(candle_data)
+
+# Strategy 2 Indicators
+add_rsi(candle_data, n=14)
+add_vwap(candle_data)
+add_ema(candle_data, period=200)
+
+create_csv(candle_data)
 
 print("Connecting to websocket...")
-sws.connect() # This is a blocking call, it will run continuously
+#sws.connect() # This is a blocking call, it will run continuously

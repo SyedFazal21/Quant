@@ -105,85 +105,79 @@ def _calculate_atr_series(df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 
 # =============================================================================
-# 3. STRATEGY 2 INDICATORS (RSI, VWAP, 200-EMA) - DICT WRAPPERS
+# 3. STRATEGY 2 INDICATORS (RSI, VWAP, 200-EMA) - SINGLE DF WRAPPERS
 # =============================================================================
-def add_rsi(df_dict: dict, n: int = 14):
-    """Adds 'rsi' column to every DataFrame in the dictionary."""
-    for key, df in df_dict.items():
-        df['rsi'] = _calculate_rsi_series(df, n)
+def add_rsi(df: pd.DataFrame, n: int = 14):
+    """Adds 'rsi' column to the DataFrame."""
+    df['rsi'] = _calculate_rsi_series(df, n)
 
 
-def add_vwap(df_dict: dict):
-    """Adds 'vwap' column to every DataFrame with daily reset (matches TradingView)."""
-    for key, df in df_dict.items():
-        df['vwap'] = _calculate_vwap_series(df)
+def add_vwap(df: pd.DataFrame):
+    """Adds 'vwap' column with daily reset (matches TradingView)."""
+    df['vwap'] = _calculate_vwap_series(df)
 
 
-def add_ema(df_dict: dict, period: int = 200, source: str = 'close'):
+def add_ema(df: pd.DataFrame, period: int = 200, source: str = 'close'):
     """Adds 'ema_200' (or custom period) column. Uses TradingView's EMA (adjust=False)."""
-    for key, df in df_dict.items():
-        df[f'ema_{period}'] = df[source].ewm(span=period, adjust=False, min_periods=1).mean()
+    df[f'ema_{period}'] = df[source].ewm(span=period, adjust=False, min_periods=1).mean()
 
 
 # =============================================================================
-# 4. STRATEGY 1 INDICATORS (ATR, Volume Spike, Opening Range) - DICT WRAPPERS
+# 4. STRATEGY 1 INDICATORS (ATR, Volume Spike, Opening Range) - SINGLE DF WRAPPERS
 # =============================================================================
-def add_atr(df_dict: dict, n: int = 14):
-    """Adds 'atr_14' column to every DataFrame in the dictionary."""
-    for key, df in df_dict.items():
-        df['atr'] = _calculate_atr_series(df, n)
+def add_atr(df: pd.DataFrame, n: int = 14):
+    """Adds 'atr' column to the DataFrame."""
+    df['atr'] = _calculate_atr_series(df, n)
 
 
-def add_volume_spike(df_dict: dict, lookback: int = 10, multiplier: float = 1.5):
+def add_volume_spike(df: pd.DataFrame, lookback: int = 10, multiplier: float = 1.5):
     """
     Adds 'volume_spike' (bool) column. True if current volume > multiplier * avg of previous 'lookback' candles.
     """
-    for key, df in df_dict.items():
-        spike = [False] * len(df)
-        if len(df) > lookback:
-            for i in range(lookback, len(df)):
-                avg_prev = df['volume'].iloc[i - lookback:i].mean()
-                if not pd.isna(avg_prev) and avg_prev > 0:
-                    spike[i] = df['volume'].iloc[i] > (multiplier * avg_prev)
-        df['volume_spike'] = spike
+    spike = [False] * len(df)
+    if len(df) > lookback:
+        for i in range(lookback, len(df)):
+            avg_prev = df['volume'].iloc[i - lookback:i].mean()
+            if not pd.isna(avg_prev) and avg_prev > 0:
+                spike[i] = df['volume'].iloc[i] > (multiplier * avg_prev)
+    df['volume_spike'] = spike
 
 
-def add_opening_range(df_dict: dict, start_time: str = "09:15", end_time: str = "09:45"):
+def add_opening_range(df: pd.DataFrame, start_time: str = "09:15", end_time: str = "09:45"):
     """
     Adds 'orb_high' and 'orb_low' columns (forward-filled across the entire day).
     Automatically converts string dates to datetime if necessary.
     """
-    for key, df in df_dict.items():
-        # --- FIX: Ensure the 'date' column is proper datetime dtype ---
-        if 'date' in df.columns:
-            # If it's not datetime yet, convert it in-place
-            if not pd.api.types.is_datetime64_any_dtype(df['date']):
-                df['date'] = pd.to_datetime(df['date'])
+    # --- FIX: Ensure the 'date' column is proper datetime dtype ---
+    if 'date' in df.columns:
+        # If it's not datetime yet, convert it in-place
+        if not pd.api.types.is_datetime64_any_dtype(df['date']):
+            df['date'] = pd.to_datetime(df['date'])
 
-            # Now .dt accessor will work perfectly
-            time_str = df['date'].dt.strftime('%H:%M')
-        else:
-            # Fallback: try using index
-            if not pd.api.types.is_datetime64_any_dtype(df.index):
-                # If index is also string, convert it
-                df.index = pd.to_datetime(df.index)
-            time_str = pd.Series(df.index).dt.strftime('%H:%M')
-            time_str.index = df.index
+        # Now .dt accessor will work perfectly
+        time_str = df['date'].dt.strftime('%H:%M')
+    else:
+        # Fallback: try using index
+        if not pd.api.types.is_datetime64_any_dtype(df.index):
+            # If index is also string, convert it
+            df.index = pd.to_datetime(df.index)
+        time_str = pd.Series(df.index).dt.strftime('%H:%M')
+        time_str.index = df.index
 
-        # Filter for the opening range period
-        mask = (time_str >= start_time) & (time_str <= end_time)
-        range_df = df[mask]
+    # Filter for the opening range period
+    mask = (time_str >= start_time) & (time_str <= end_time)
+    range_df = df[mask]
 
-        if not range_df.empty:
-            orb_high_val = range_df['high'].max()
-            orb_low_val = range_df['low'].min()
-        else:
-            orb_high_val = np.nan
-            orb_low_val = np.nan
+    if not range_df.empty:
+        orb_high_val = range_df['high'].max()
+        orb_low_val = range_df['low'].min()
+    else:
+        orb_high_val = np.nan
+        orb_low_val = np.nan
 
-        # Forward-fill these values to every row
-        df['orb_high'] = orb_high_val
-        df['orb_low'] = orb_low_val
+    # Forward-fill these values to every row
+    df['orb_high'] = orb_high_val
+    df['orb_low'] = orb_low_val
 
 
 # =============================================================================
