@@ -1,4 +1,5 @@
-from utils.smart_api_helper import authenticate, hist_data
+from utils.history_data_service import authenticate, hist_data
+from utils.websocket_service import create_websocket_connection
 from utils.csv_creator import create_csv
 from utils.token_symbol_lookup import get_cached_nifty_future_token
 
@@ -9,6 +10,8 @@ from utils.technical_indicators import (
 
 smart_api = authenticate()
 active_nifty_50_token = get_cached_nifty_future_token()
+
+sws = create_websocket_connection(smart_api.access_token, smart_api.getfeedToken())
 candle_data = hist_data(["NIFTY_FUT"], 10, "FIVE_MINUTE", active_nifty_50_token, smart_api)
 
 # =============================================================================
@@ -25,16 +28,19 @@ print(f"\n===== REGIME FILTER SCORE: {score} =====")
 if score >= 2:
     print(">> DEPLOY STRATEGY 1 (ORB - Trend Follower)")
     # Strategy 1 Indicators
-    add_atr(candle_data, n=14)  # Adds 'atr' column
-    add_volume_spike(candle_data)  # Adds 'volume_spike' (bool) column
-    add_opening_range(candle_data)  # Adds 'orb_high' and 'orb_low' columns
+    add_atr(candle_data, n=14)
+    add_volume_spike(candle_data)
+    add_opening_range(candle_data)
 elif score <= -2:
     print(">> DEPLOY STRATEGY 2 (RSI+VWAP Scalper)")
     # Strategy 2 Indicators
-    add_rsi(candle_data, n=14)  # Adds 'rsi' column
-    add_vwap(candle_data)  # Adds 'vwap' column
-    add_ema(candle_data, period=200)  # Adds 'ema_200' column
+    add_rsi(candle_data, n=14)
+    add_vwap(candle_data)
+    add_ema(candle_data, period=200)
 else:
     print(">> SIT OUT TODAY (Mixed signals)")
 
 create_csv(candle_data["NIFTY_FUT"])
+
+print("Connecting to websocket...")
+sws.connect() # This is a blocking call, it will run continuously

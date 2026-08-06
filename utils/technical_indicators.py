@@ -190,7 +190,7 @@ def add_opening_range(df_dict: dict, start_time: str = "09:15", end_time: str = 
 # 5. REGIME FILTER HELPERS (Run at 9:20 AM)
 #    These return SCALAR values (single numbers) for decision making.
 # =============================================================================
-def get_vix_value(smartApi):
+def get_vix_value(smart_api):
     """
     Fetches the live India VIX value. Returns float, or 15.0 as fallback.
     """
@@ -202,7 +202,7 @@ def get_vix_value(smartApi):
         }
 
         # CORRECT METHOD: Use ltpData instead of getLtpData
-        vix_response = smartApi.ltpData(
+        vix_response = smart_api.ltpData(
             vix_request['exchange'],
             vix_request['tradingsymbol'],
             vix_request['symboltoken']
