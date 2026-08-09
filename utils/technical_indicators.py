@@ -122,6 +122,47 @@ def add_ema(df: pd.DataFrame, period: int = 200, source: str = 'close'):
     df[f'ema_{period}'] = df[source].ewm(span=period, adjust=False, min_periods=1).mean()
 
 
+def _calculate_adx_series(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """
+    Calculates ADX (Average Directional Index) using Wilder's Smoothing.
+    Returns a Series with the ADX values.
+    """
+    high, low, close = df['high'], df['low'], df['close']
+
+    # True Range (reuse existing logic)
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+    true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+    # Directional Movement
+    dm_plus = high.diff()
+    dm_minus = low.diff()
+
+    plus_dm = pd.Series(np.nan, index=df.index)
+    minus_dm = pd.Series(np.nan, index=df.index)
+    plus_dm[dm_plus > dm_minus] = dm_plus[dm_plus > dm_minus]
+    plus_dm[plus_dm < 0] = 0
+    minus_dm[dm_minus > dm_plus] = dm_minus[dm_minus > dm_plus]
+    minus_dm[minus_dm < 0] = 0
+
+    # Wilder's smoothing
+    tr_smooth = wilder_smoothing(true_range, period)
+    plus_di = 100 * (wilder_smoothing(plus_dm, period) / tr_smooth)
+    minus_di = 100 * (wilder_smoothing(minus_dm, period) / tr_smooth)
+
+    # DX = |+DI - -DI| / (+DI + -DI) * 100
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    adx = wilder_smoothing(dx, period)
+
+    return adx
+
+
+def add_adx(df: pd.DataFrame, n: int = 14):
+    """Adds 'adx' column to the DataFrame."""
+    df['adx'] = _calculate_adx_series(df, n)
+
+
 # =============================================================================
 # 4. STRATEGY 1 INDICATORS (ATR, Volume Spike, Opening Range) - SINGLE DF WRAPPERS
 # =============================================================================
